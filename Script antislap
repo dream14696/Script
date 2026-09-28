@@ -1,0 +1,155 @@
+--[[
+	WARNING: Heads up! This script has not been verified by ScriptBlox. Use at your own risk!
+]]
+-- LocalScript: AntiSlapSystem
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+
+-- Variable para controlar el estado
+local antiSlapEnabled = true
+
+-- Crear la notificación
+local function createNotification(message)
+    -- Crear el GUI
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "AntiSlapNotification"
+    screenGui.Parent = player.PlayerGui
+    
+    -- Frame principal
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Name = "NotificationFrame"
+    mainFrame.Size = UDim2.new(0, 300, 0, 80)
+    mainFrame.Position = UDim2.new(0.5, -150, 0.9, 0)
+    mainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    mainFrame.BackgroundTransparency = 0.2
+    mainFrame.BorderSizePixel = 0
+    mainFrame.Parent = screenGui
+    
+    -- Sombra
+    local shadow = Instance.new("ImageLabel")
+    shadow.Name = "Shadow"
+    shadow.Size = UDim2.new(1, 10, 1, 10)
+    shadow.Position = UDim2.new(0, -5, 0, -5)
+    shadow.BackgroundTransparency = 1
+    shadow.Image = "rbxassetid://5554237731"
+    shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
+    shadow.ImageTransparency = 0.8
+    shadow.ScaleType = Enum.ScaleType.Slice
+    shadow.SliceCenter = Rect.new(10, 10, 118, 118)
+    shadow.Parent = mainFrame
+    
+    -- Icono
+    local icon = Instance.new("ImageLabel")
+    icon.Name = "Icon"
+    icon.Size = UDim2.new(0, 50, 0, 50)
+    icon.Position = UDim2.new(0, 15, 0.5, -25)
+    icon.BackgroundTransparency = 1
+    icon.Image = "rbxassetid://6031094678" -- Icono de escudo
+    icon.Parent = mainFrame
+    
+    -- Texto
+    local textLabel = Instance.new("TextLabel")
+    textLabel.Name = "Message"
+    textLabel.Size = UDim2.new(1, -80, 1, -20)
+    textLabel.Position = UDim2.new(0, 75, 0, 10)
+    textLabel.BackgroundTransparency = 1
+    textLabel.Text = message
+    textLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    textLabel.TextSize = 16
+    textLabel.Font = Enum.Font.Gotham
+    textLabel.TextWrapped = true
+    textLabel.TextXAlignment = Enum.TextXAlignment.Left
+    textLabel.Parent = mainFrame
+    
+    -- Animación de entrada
+    mainFrame.Position = UDim2.new(0.5, -150, 1.1, 0)
+    mainFrame:TweenPosition(
+        UDim2.new(0.5, -150, 0.9, 0),
+        Enum.EasingDirection.Out,
+        Enum.EasingStyle.Quad,
+        0.5,
+        true
+    )
+    
+    -- Esperar y desaparecer
+    wait(5)
+    
+    -- Animación de salida
+    mainFrame:TweenPosition(
+        UDim2.new(0.5, -150, 1.1, 0),
+        Enum.EasingDirection.In,
+        Enum.EasingStyle.Quad,
+        0.5,
+        true,
+        function()
+            screenGui:Destroy()
+        end
+    )
+end
+
+-- Función anti-slap
+local function setupAntiSlap()
+    -- Guardar posición original
+    local originalPosition = humanoidRootPart.CFrame
+    
+    -- Conectar eventos para detectar cambios de posición forzados
+    local connection
+    connection = game:GetService("RunService").Heartbeat:Connect(function()
+        if not antiSlapEnabled then
+            connection:Disconnect()
+            return
+        end
+        
+        -- Verificar si la posición cambió abruptamente (posible slap)
+        local currentVelocity = humanoidRootPart.AssemblyLinearVelocity.Magnitude
+        local currentPosition = humanoidRootPart.Position
+        
+        -- Si la velocidad es muy alta o posición cambió mucho
+        if currentVelocity > 100 then
+            -- Cancelar movimiento
+            humanoidRootPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+            humanoidRootPart.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+            humanoidRootPart.CFrame = originalPosition
+        end
+        
+        -- Actualizar posición original para seguimiento suave
+        originalPosition = humanoidRootPart.CFrame
+    end)
+    
+    return connection
+end
+
+-- Configurar comando de chat
+local function setupChatCommand()
+    player.Chatted:Connect(function(message)
+        if string.lower(message) == "/aispoff" then
+            antiSlapEnabled = false
+            createNotification("Anti-Slap desactivado")
+        elseif string.lower(message) == "/aispon" then
+            antiSlapEnabled = true
+            createNotification("Anti-Slap activado")
+            setupAntiSlap()
+        end
+    end)
+end
+
+-- Inicializar sistema
+createNotification("Anti-Slap activado\ndi en el chat \"/aispoff\" para desactivar")
+setupAntiSlap()
+setupChatCommand()
+
+-- Reconectar si el personaje muere
+player.CharacterAdded:Connect(function(newCharacter)
+    character = newCharacter
+    humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+    
+    if antiSlapEnabled then
+        setupAntiSlap()
+    end
+end)
